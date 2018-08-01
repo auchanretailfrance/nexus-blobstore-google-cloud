@@ -129,6 +129,8 @@ class GoogleCloudBlobStoreTest
   def 'store a blob successfully'() {
     given: 'blobstore setup'
       storage.get('mybucket') >> bucket
+      bucket.getName() >> 'mybucket'
+      bucket.getStorage() >> storage
       blobStore.init(config)
       blobStore.doStart()
 

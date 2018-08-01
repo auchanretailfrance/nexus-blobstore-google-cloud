@@ -12,40 +12,8 @@
  */
 package org.sonatype.nexus.blobstore.gcloud.internal;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.channels.Channels;
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.stream.Stream;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-import javax.inject.Named;
-
-import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
-import org.sonatype.nexus.blobstore.BlobSupport;
-import org.sonatype.nexus.blobstore.MetricsInputStream;
-import org.sonatype.nexus.blobstore.StreamMetrics;
-import org.sonatype.nexus.blobstore.api.Blob;
-import org.sonatype.nexus.blobstore.api.BlobAttributes;
-import org.sonatype.nexus.blobstore.api.BlobId;
-import org.sonatype.nexus.blobstore.api.BlobMetrics;
-import org.sonatype.nexus.blobstore.api.BlobStore;
-import org.sonatype.nexus.blobstore.api.BlobStoreConfiguration;
-import org.sonatype.nexus.blobstore.api.BlobStoreException;
-import org.sonatype.nexus.blobstore.api.BlobStoreMetrics;
-import org.sonatype.nexus.blobstore.api.BlobStoreUsageChecker;
-import org.sonatype.nexus.common.log.DryRunPrefix;
-import org.sonatype.nexus.common.stateguard.Guarded;
-import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
-import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
-import org.sonatype.nexus.scheduling.CancelableHelper;
-
 import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
@@ -57,19 +25,38 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.hash.HashCode;
+import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
+import org.sonatype.nexus.blobstore.BlobIdLocationResolver;
+import org.sonatype.nexus.blobstore.BlobSupport;
+import org.sonatype.nexus.blobstore.MetricsInputStream;
+import org.sonatype.nexus.blobstore.StreamMetrics;
+import org.sonatype.nexus.blobstore.api.*;
+import org.sonatype.nexus.common.log.DryRunPrefix;
+import org.sonatype.nexus.common.stateguard.Guarded;
+import org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport;
+import org.sonatype.nexus.logging.task.ProgressLogIntervalHelper;
+import org.sonatype.nexus.scheduling.CancelableHelper;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import javax.annotation.Nullable;
+import javax.inject.Inject;
+import javax.inject.Named;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.stream.Stream;
+
+import static com.google.common.base.Preconditions.*;
 import static com.google.common.cache.CacheLoader.from;
 import static java.lang.String.format;
 import static org.sonatype.nexus.blobstore.DirectPathLocationStrategy.DIRECT_PATH_ROOT;
 import static org.sonatype.nexus.blobstore.api.BlobAttributesConstants.HEADER_PREFIX;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.FAILED;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.NEW;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STARTED;
-import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.STOPPED;
+import static org.sonatype.nexus.common.stateguard.StateGuardLifecycleSupport.State.*;
 
 /**
  * Google Cloud Storage backed {@link BlobStore}.
@@ -166,7 +153,6 @@ public class GoogleCloudBlobStore
   @Guarded(by = STARTED)
   public Blob create(final InputStream inputStream, final Map<String, String> headers) {
     checkNotNull(inputStream);
-
     return createInternal(headers, destination -> {
       try (InputStream data = inputStream) {
         MetricsInputStream input = new MetricsInputStream(data);

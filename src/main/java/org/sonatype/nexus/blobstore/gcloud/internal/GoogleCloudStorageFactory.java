@@ -50,4 +50,5 @@ public class GoogleCloudStorageFactory extends AbstractGoogleClientFactory
 
     return builder.build().getService();
   }
+
 }
