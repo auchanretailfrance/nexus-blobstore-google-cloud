@@ -17,6 +17,7 @@ import com.google.cloud.TransportOptions;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
 import org.apache.http.client.HttpClient;
+import org.apache.http.impl.client.AbstractHttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
@@ -46,18 +47,8 @@ public abstract class AbstractGoogleClientFactory
    */
   TransportOptions transportOptions() {
     // replicate default connection and protocol parameters used within {@link ApacheHttpTransport}
-    PoolingClientConnectionManager connManager = new PoolingClientConnectionManager();
-    connManager.setDefaultMaxPerRoute(200);
-    connManager.setMaxTotal(200);
-    BasicHttpParams params = new BasicHttpParams();
-    params.setParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false);
-    params.setParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, 8192);
-    params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 0);
-    params.setParameter(CoreConnectionPNames.SO_KEEPALIVE, true);
-    DefaultHttpClient client = new DefaultHttpClient(connManager, params);
-
     return HttpTransportOptions.newBuilder()
-        .setHttpTransportFactory(() -> new ApacheHttpTransport(client)).setConnectTimeout(0).setReadTimeout(0)
+        .setHttpTransportFactory(() -> new ApacheHttpTransport(CustomTimeoutHttpClient.newHttpClient())).setConnectTimeout(0).setReadTimeout(0)
         .build();
   }
 }
